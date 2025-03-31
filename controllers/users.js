@@ -14,23 +14,40 @@ module.exports = {
         })
     },
     createAnUser: async function (username, password, email, roleI) {
+        try {
+            // Check if username already exists
+            let existingUser = await this.getUserByUsername(username);
+            if (existingUser) {
+                throw new Error('Username already exists');
+            }
 
-        let role = await roleSchema.findOne({
-            name: roleI
-        })
-        if (role) {
+            // Find role
+            let role = await roleSchema.findOne({
+                name: roleI
+            });
+            if (!role) {
+                throw new Error('Role does not exist');
+            }
+
+            // Hash password
+            const salt = bcrypt.genSaltSync(10);
+            const hashedPassword = bcrypt.hashSync(password, salt);
+
+            // Create new user
             let newUser = new userSchema({
                 username: username,
-                password: password,
+                password: hashedPassword,
                 email: email,
-                role: role._id
-            })
-            return await newUser.save();
+                role: role._id,
+                status: true
+            });
 
-        } else {
-            throw new Error('role khong ton tai')
+            // Save user
+            const savedUser = await newUser.save();
+            return savedUser;
+        } catch (error) {
+            throw error;
         }
-
     },
     updateAnUser: async function (id, body) {
         let updatedUser = await this.getUserById(id);
@@ -51,24 +68,50 @@ module.exports = {
         )
         return updatedUser;
     },
-    checkLogin:async function(username,password){
-        let user = await this.getUserByUsername(username);
-        if (!user) {
-            throw new Error("username user hoac password khong dung")
-        } else {
-            if (bcrypt.compareSync(password, user.password)) {
-                return user._id;
-            } else {
-                throw new Error("username user hoac password khong dung")
+    checkLogin: async function(username, password) {
+        try {
+            // Find user and populate role
+            let user = await userSchema.findOne({ username: username }).populate('role');
+            if (!user) {
+                throw new Error("Username or password is incorrect");
             }
+
+            // Check if user is active
+            if (!user.status) {
+                throw new Error("Account is deactivated");
+            }
+            
+            // Compare password with hashed password
+            const isPasswordValid = bcrypt.compareSync(password, user.password);
+            if (!isPasswordValid) {
+                throw new Error("Username or password is incorrect");
+            }
+            
+            // Increment login count
+            user.loginCount += 1;
+            await user.save();
+            
+            return user._id;
+        } catch (error) {
+            throw error;
         }
     },
-    changePassword: async function(user,oldpassword,newpassword){
-        if(bcrypt.compareSync(user.password,oldpassword)){
-            user.password = newpassword;
+    changePassword: async function(user, oldpassword, newpassword) {
+        try {
+            // First verify the old password
+            if (!bcrypt.compareSync(oldpassword, user.password)) {
+                throw new Error("Old password is incorrect");
+            }
+
+            // Hash the new password
+            const salt = bcrypt.genSaltSync(10);
+            const hashedPassword = bcrypt.hashSync(newpassword, salt);
+            
+            // Update user's password with the hashed version
+            user.password = hashedPassword;
             return await user.save();
-        }else{
-            throw new Error("old password khong dung")
+        } catch (error) {
+            throw error;
         }
     }
 }

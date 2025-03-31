@@ -19,24 +19,43 @@ router.post('/login', async function (req, res, next) {
             }, constants.SECRET_KEY)
         })
     } catch (error) {
-        next(error)
+        res.status(400).send({
+            success: false,
+            message: error.message
+        });
     }
 });
 
 // Signup - no authentication required
 router.post('/signup', async function (req, res, next) {
     try {
-        let username = req.body.username;
-        let password = req.body.password;
-        let email = req.body.email;
-        let result = await userControllers.createAnUser(username, password,
-            email, 'user');
+        let { username, password, email } = req.body;
+        
+        // Validate required fields
+        if (!username || !password || !email) {
+            return res.status(400).send({
+                success: false,
+                message: "Username, password and email are required"
+            });
+        }
+
+        // Create user with 'user' role
+        let result = await userControllers.createAnUser(
+            username,
+            password,
+            email,
+            'user'
+        );
+
         res.status(200).send({
             success: true,
             data: result
-        })
+        });
     } catch (error) {
-        next(error)
+        res.status(400).send({
+            success: false,
+            message: error.message
+        });
     }
 });
 
@@ -48,23 +67,36 @@ router.get('/me', check_authentication, async function (req, res, next) {
             data: req.user
         });
     } catch (error) {
-        next(error)
+        res.status(400).send({
+            success: false,
+            message: error.message
+        });
     }
 });
 
 // Change password - requires authentication
 router.post('/changepassword', check_authentication, async function (req, res, next) {
     try {
-        let oldpassword = req.body.oldpassword;
-        let newpassword = req.body.newpassword;
-        let user = userControllers.changePassword(req.user,oldpassword,newpassword);
+        let { oldpassword, newpassword } = req.body;
+        
+        // Validate required fields
+        if (!oldpassword || !newpassword) {
+            return res.status(400).send({
+                success: false,
+                message: "Old password and new password are required"
+            });
+        }
+
+        let user = await userControllers.changePassword(req.user, oldpassword, newpassword);
         res.send({
             success: true,
             data: user
         });
-        
     } catch (error) {
-        next(error)
+        res.status(400).send({
+            success: false,
+            message: error.message
+        });
     }
 });
 

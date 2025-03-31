@@ -22,7 +22,8 @@ let userSchema = new mongoose.Schema({
         default: ""
     }, status: {
         type: Boolean,
-        default: false
+        default: true,
+        required: true
     }, role: {
         type: mongoose.Types.ObjectId,
         ref: 'role',
@@ -36,13 +37,12 @@ let userSchema = new mongoose.Schema({
     timestamps: true
 })
 
-userSchema.pre('save', function (next) {
-    if (this.isModified('password')) {
-        let salt = bcrypt.genSaltSync(10);
-        let hash = bcrypt.hashSync(this.password, salt);
-        this.password = hash;
+// Add pre-save middleware to ensure status is true for new users
+userSchema.pre('save', function(next) {
+    if (this.isNew) {
+        this.status = true;
     }
     next();
-})
+});
 
 module.exports = mongoose.model('user', userSchema)
